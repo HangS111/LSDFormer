@@ -1,20 +1,18 @@
 from functools import partial
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from ..modules.block import *
-from ..modules import *
-
 from timm.layers import DropPath, to_2tuple
 
+from ..modules import *
+from ..modules.block import *
 
-__all__ = ['C3k2_ECMA_PF','C3k_ECMA_PF'
-           ]
+__all__ = ["C3k2_ECMA_PF", "C3k_ECMA_PF"]
+
 
 class LayerNormGeneral(nn.Module):
-
-    def __init__(self, affine_shape=None, normalized_dim=(-1, ), scale=True,
-        bias=True, eps=1e-5):
+    def __init__(self, affine_shape=None, normalized_dim=(-1,), scale=True, bias=True, eps=1e-5):
         super().__init__()
         self.normalized_dim = normalized_dim
         self.use_scale = scale
@@ -33,10 +31,10 @@ class LayerNormGeneral(nn.Module):
             x = x + self.bias
         return x
 
+
 class Scale(nn.Module):
-    """
-    Scale vector by element multiplications.
-    """
+    """Scale vector by element multiplications."""
+
     def __init__(self, dim, init_value=1.0, trainable=True):
         super().__init__()
         self.scale = nn.Parameter(init_value * torch.ones(dim), requires_grad=trainable)
@@ -44,11 +42,12 @@ class Scale(nn.Module):
     def forward(self, x):
         return x * self.scale
 
+
 class LayerNormWithoutBias(nn.Module):
+    """Equal to partial(LayerNormGeneral, bias=False) but faster, because it directly utilizes optimized
+    F.layer_norm.
     """
-    Equal to partial(LayerNormGeneral, bias=False) but faster,
-    because it directly utilizes otpimized F.layer_norm
-    """
+
     def __init__(self, normalized_shape, eps=1e-5, **kwargs):
         super().__init__()
         self.eps = eps
@@ -57,35 +56,36 @@ class LayerNormWithoutBias(nn.Module):
             normalized_shape = (normalized_shape,)
         self.weight = nn.Parameter(torch.ones(normalized_shape))
         self.normalized_shape = normalized_shape
+
     def forward(self, x):
         return F.layer_norm(x, self.normalized_shape, weight=self.weight, bias=self.bias, eps=self.eps)
 
+
 class StarReLU(nn.Module):
-    """
-    StarReLU: s * relu(x) ** 2 + b
-    """
-    def __init__(self, scale_value=1.0, bias_value=0.0,
-        scale_learnable=True, bias_learnable=True,
-        mode=None, inplace=False):
+    """StarReLU: s * relu(x) ** 2 + b."""
+
+    def __init__(
+        self, scale_value=1.0, bias_value=0.0, scale_learnable=True, bias_learnable=True, mode=None, inplace=False
+    ):
         super().__init__()
         self.inplace = inplace
         self.relu = nn.ReLU(inplace=inplace)
-        self.scale = nn.Parameter(scale_value * torch.ones(1),
-            requires_grad=scale_learnable)
-        self.bias = nn.Parameter(bias_value * torch.ones(1),
-            requires_grad=bias_learnable)
+        self.scale = nn.Parameter(scale_value * torch.ones(1), requires_grad=scale_learnable)
+        self.bias = nn.Parameter(bias_value * torch.ones(1), requires_grad=bias_learnable)
+
     def forward(self, x):
-        return self.scale * self.relu(x)**2 + self.bias
+        return self.scale * self.relu(x) ** 2 + self.bias
+
 
 class Pooling(nn.Module):
     """
     Implementation of pooling for PoolFormer: https://arxiv.org/abs/2111.11418
-    Modfiled for [B, H, W, C] input
+    Modfiled for [B, H, W, C] input.
     """
+
     def __init__(self, pool_size=3, **kwargs):
         super().__init__()
-        self.pool = nn.AvgPool2d(
-            pool_size, stride=1, padding=pool_size//2, count_include_pad=False)
+        self.pool = nn.AvgPool2d(pool_size, stride=1, padding=pool_size // 2, count_include_pad=False)
 
     def forward(self, x):
         y = x.permute(0, 3, 1, 2)
@@ -93,11 +93,15 @@ class Pooling(nn.Module):
         y = y.permute(0, 2, 3, 1)
         return y - x
 
+
 class Mlp(nn.Module):
-    """ MLP as used in MetaFormer models, eg Transformer, MLP-Mixer, PoolFormer, MetaFormer baslines and related networks.
+    """
+    MLP as used in MetaFormer models, eg Transformer, MLP-Mixer, PoolFormer, MetaFormer baselines and related networks.
+
     Mostly copied from timm.
     """
-    def __init__(self, dim, mlp_ratio=4, out_features=None, act_layer=StarReLU, drop=0., bias=False, **kwargs):
+
+    def __init__(self, dim, mlp_ratio=4, out_features=None, act_layer=StarReLU, drop=0.0, bias=False, **kwargs):
         super().__init__()
         in_features = dim
         out_features = out_features or in_features
@@ -119,23 +123,21 @@ class Mlp(nn.Module):
         return x
 
 
-
-
 class ConvolutionalGLU(nn.Module):
-    def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.) -> None:
+    def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.0) -> None:
         super().__init__()
         out_features = out_features or in_features
         hidden_features = hidden_features or in_features
         hidden_features = int(2 * hidden_features / 3)
         self.fc1 = nn.Conv2d(in_features, hidden_features * 2, 1)
         self.dwconv = nn.Sequential(
-            nn.Conv2d(hidden_features, hidden_features, kernel_size=3, stride=1, padding=1, bias=True, groups=hidden_features),
-            act_layer()
+            nn.Conv2d(
+                hidden_features, hidden_features, kernel_size=3, stride=1, padding=1, bias=True, groups=hidden_features
+            ),
+            act_layer(),
         )
         self.fc2 = nn.Conv2d(hidden_features, out_features, 1)
         self.drop = nn.Dropout(drop)
-
-
 
     def forward(self, x):
         x_shortcut = x
@@ -146,94 +148,84 @@ class ConvolutionalGLU(nn.Module):
         x = self.drop(x)
         return x_shortcut + x
 
-class MetaFormerBlock(nn.Module):
-    """
-    Implementation of one MetaFormer block.
-    """
-    def __init__(self, dim,
-                 token_mixer=nn.Identity, mlp=Mlp,
-                 norm_layer=partial(LayerNormWithoutBias, eps=1e-6),
-                 drop=0., drop_path=0.,
-                 layer_scale_init_value=None, res_scale_init_value=None
-                 ):
 
+class MetaFormerBlock(nn.Module):
+    """Implementation of one MetaFormer block."""
+
+    def __init__(
+        self,
+        dim,
+        token_mixer=nn.Identity,
+        mlp=Mlp,
+        norm_layer=partial(LayerNormWithoutBias, eps=1e-6),
+        drop=0.0,
+        drop_path=0.0,
+        layer_scale_init_value=None,
+        res_scale_init_value=None,
+    ):
         super().__init__()
 
         self.norm1 = norm_layer(dim)
         self.token_mixer = token_mixer(dim=dim, drop=drop)
-        self.drop_path1 = DropPath(drop_path) if drop_path > 0. else nn.Identity()
-        self.layer_scale1 = Scale(dim=dim, init_value=layer_scale_init_value) \
-            if layer_scale_init_value else nn.Identity()
-        self.res_scale1 = Scale(dim=dim, init_value=res_scale_init_value) \
-            if res_scale_init_value else nn.Identity()
+        self.drop_path1 = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
+        self.layer_scale1 = (
+            Scale(dim=dim, init_value=layer_scale_init_value) if layer_scale_init_value else nn.Identity()
+        )
+        self.res_scale1 = Scale(dim=dim, init_value=res_scale_init_value) if res_scale_init_value else nn.Identity()
 
         self.norm2 = norm_layer(dim)
         self.mlp = mlp(dim=dim, drop=drop)
-        self.drop_path2 = DropPath(drop_path) if drop_path > 0. else nn.Identity()
-        self.layer_scale2 = Scale(dim=dim, init_value=layer_scale_init_value) \
-            if layer_scale_init_value else nn.Identity()
-        self.res_scale2 = Scale(dim=dim, init_value=res_scale_init_value) \
-            if res_scale_init_value else nn.Identity()
+        self.drop_path2 = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
+        self.layer_scale2 = (
+            Scale(dim=dim, init_value=layer_scale_init_value) if layer_scale_init_value else nn.Identity()
+        )
+        self.res_scale2 = Scale(dim=dim, init_value=res_scale_init_value) if res_scale_init_value else nn.Identity()
 
     def forward(self, x):
         x = x.permute(0, 2, 3, 1)
-        x = self.res_scale1(x) + \
-            self.layer_scale1(
-                self.drop_path1(
-                    self.token_mixer(self.norm1(x))
-                )
-            )
-        x = self.res_scale2(x) + \
-            self.layer_scale2(
-                self.drop_path2(
-                    self.mlp(self.norm2(x))
-                )
-            )
+        x = self.res_scale1(x) + self.layer_scale1(self.drop_path1(self.token_mixer(self.norm1(x))))
+        x = self.res_scale2(x) + self.layer_scale2(self.drop_path2(self.mlp(self.norm2(x))))
         return x.permute(0, 3, 1, 2)
 
-class MetaFormerCGLUBlock(nn.Module):
-    """
-    Implementation of one MetaFormer block.
-    """
-    def __init__(self, dim,
-                 token_mixer=nn.Identity, mlp=ConvolutionalGLU,
-                 norm_layer=partial(LayerNormWithoutBias, eps=1e-6),
-                 drop=0., drop_path=0.,
-                 layer_scale_init_value=None, res_scale_init_value=None
-                 ):
 
+class MetaFormerCGLUBlock(nn.Module):
+    """Implementation of one MetaFormer block."""
+
+    def __init__(
+        self,
+        dim,
+        token_mixer=nn.Identity,
+        mlp=ConvolutionalGLU,
+        norm_layer=partial(LayerNormWithoutBias, eps=1e-6),
+        drop=0.0,
+        drop_path=0.0,
+        layer_scale_init_value=None,
+        res_scale_init_value=None,
+    ):
         super().__init__()
 
         self.norm1 = norm_layer(dim)
         self.token_mixer = token_mixer(dim=dim, drop=drop)
-        self.drop_path1 = DropPath(drop_path) if drop_path > 0. else nn.Identity()
-        self.layer_scale1 = Scale(dim=dim, init_value=layer_scale_init_value) \
-            if layer_scale_init_value else nn.Identity()
-        self.res_scale1 = Scale(dim=dim, init_value=res_scale_init_value) \
-            if res_scale_init_value else nn.Identity()
+        self.drop_path1 = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
+        self.layer_scale1 = (
+            Scale(dim=dim, init_value=layer_scale_init_value) if layer_scale_init_value else nn.Identity()
+        )
+        self.res_scale1 = Scale(dim=dim, init_value=res_scale_init_value) if res_scale_init_value else nn.Identity()
 
         self.norm2 = norm_layer(dim)
         self.mlp = mlp(dim, drop=drop)
-        self.drop_path2 = DropPath(drop_path) if drop_path > 0. else nn.Identity()
-        self.layer_scale2 = Scale(dim=dim, init_value=layer_scale_init_value) \
-            if layer_scale_init_value else nn.Identity()
-        self.res_scale2 = Scale(dim=dim, init_value=res_scale_init_value) \
-            if res_scale_init_value else nn.Identity()
+        self.drop_path2 = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
+        self.layer_scale2 = (
+            Scale(dim=dim, init_value=layer_scale_init_value) if layer_scale_init_value else nn.Identity()
+        )
+        self.res_scale2 = Scale(dim=dim, init_value=res_scale_init_value) if res_scale_init_value else nn.Identity()
 
     def forward(self, x):
         x = x.permute(0, 2, 3, 1)
-        x = self.res_scale1(x) + \
-            self.layer_scale1(
-                self.drop_path1(
-                    self.token_mixer(self.norm1(x))
-                )
-            )
-        x = self.res_scale2(x.permute(0, 3, 1, 2)) + \
-            self.layer_scale2(
-                self.drop_path2(
-                    self.mlp(self.norm2(x).permute(0, 3, 1, 2))
-                )
-            )
+        x = self.res_scale1(x) + self.layer_scale1(self.drop_path1(self.token_mixer(self.norm1(x))))
+        x = self.res_scale2(x.permute(0, 3, 1, 2)) + self.layer_scale2(
+            self.drop_path2(self.mlp(self.norm2(x).permute(0, 3, 1, 2)))
+        )
         return x
 
 
@@ -241,13 +233,28 @@ class C3k_ECMA_PF(C3k):
     def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5, k=3):
         super().__init__(c1, c2, n, shortcut, g, e, k)
         c_ = int(c2 * e)  # hidden channels
-        self.m = nn.Sequential(*(MetaFormerCGLUBlock(
-                dim=c_, token_mixer=Pooling, norm_layer=partial(LayerNormGeneral, normalized_dim=(1, 2, 3), eps=1e-6, bias=False)
-            ) for _ in range(n)))
+        self.m = nn.Sequential(
+            *(
+                MetaFormerCGLUBlock(
+                    dim=c_,
+                    token_mixer=Pooling,
+                    norm_layer=partial(LayerNormGeneral, normalized_dim=(1, 2, 3), eps=1e-6, bias=False),
+                )
+                for _ in range(n)
+            )
+        )
+
 
 class C3k2_ECMA_PF(C3k2):
     def __init__(self, c1, c2, n=1, c3k=False, e=0.5, g=1, shortcut=True):
         super().__init__(c1, c2, n, c3k, e, g, shortcut)
-        self.m = nn.ModuleList(C3k_ECMA_PF(self.c, self.c, n, shortcut, g) if c3k else MetaFormerCGLUBlock(
-                dim=self.c, token_mixer=Pooling, norm_layer=partial(LayerNormGeneral, normalized_dim=(1, 2, 3), eps=1e-6, bias=False)
-            ) for _ in range(n))
+        self.m = nn.ModuleList(
+            C3k_ECMA_PF(self.c, self.c, n, shortcut, g)
+            if c3k
+            else MetaFormerCGLUBlock(
+                dim=self.c,
+                token_mixer=Pooling,
+                norm_layer=partial(LayerNormGeneral, normalized_dim=(1, 2, 3), eps=1e-6, bias=False),
+            )
+            for _ in range(n)
+        )

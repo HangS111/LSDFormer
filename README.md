@@ -7,8 +7,11 @@ install the ultralytics package, including all requirements, in a Python>=3.8 en
 
 ## Usages
 model profiles path:  
-    ultralytics-main\profiles   
-train and test files name:  
+
+    ultralytics-main\profiles  
+    
+train and test files name: 
+
     train.py   
     test.py
 

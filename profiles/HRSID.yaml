@@ -1,0 +1,9 @@
+
+
+train:  # train images path of dataset
+val:  # val images path of dataset
+test:   # test images path of dataset
+nc: 1
+# class
+names:
+  0:

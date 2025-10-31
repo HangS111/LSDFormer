@@ -60,6 +60,7 @@ from .block import (
     SCDown,
     TorchVision,
 )
+from .deconv import *
 from .conv import (
     CBAM,
     ChannelAttention,

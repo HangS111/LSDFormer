@@ -1,8 +1,4 @@
-import math
-import torch
-import torch.nn as nn
-
-from ..extra_module.deconv import *
+from ultralytics.nn.modules.deconv import *
 from ..modules import DFL
 
 from ultralytics.utils.tal import dist2bbox, make_anchors

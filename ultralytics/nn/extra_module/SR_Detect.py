@@ -1,15 +1,14 @@
 import math
+
 import torch
 import torch.nn as nn
+
+from ultralytics.utils.tal import dist2bbox, make_anchors
 
 from ..extra_module.deconv import *
 from ..modules import DFL
 
-from ultralytics.utils.tal import dist2bbox, make_anchors
-
-
-__all__ = ['SR_Detect'
-           ]
+__all__ = ["SR_Detect"]
 
 
 class DEConv_GN(DEConv):
@@ -20,6 +19,7 @@ class DEConv_GN(DEConv):
 
         self.bn = nn.GroupNorm(16, dim)
 
+
 def autopad(k, p=None, d=1):  # kernel, padding, dilation
     """Pad to 'same' shape outputs."""
     if d > 1:
@@ -27,6 +27,7 @@ def autopad(k, p=None, d=1):  # kernel, padding, dilation
     if p is None:
         p = k // 2 if isinstance(k, int) else [x // 2 for x in k]  # auto-pad
     return p
+
 
 class Conv_GN(nn.Module):
     """Standard convolution with args(ch_in, ch_out, kernel, stride, padding, groups, dilation, activation)."""
@@ -44,8 +45,10 @@ class Conv_GN(nn.Module):
         """Apply convolution, batch normalization and activation to input tensor."""
         return self.act(self.gn(self.conv(x)))
 
+
 class Scale(nn.Module):
-    """A learnable scale parameter.
+    """
+    A learnable scale parameter.
 
     This layer scales the input by a learnable factor. It multiplies a
     learnable scale parameter of shape (1,) with input of any shape.
@@ -60,6 +63,7 @@ class Scale(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return x * self.scale
+
 
 class SR_Detect(nn.Module):
     # Lightweight Shared Detail Enhanced Convolutional Detection Head

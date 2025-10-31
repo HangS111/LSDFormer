@@ -10,7 +10,6 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 
-from .extra_module import *
 from ultralytics.nn.autobackend import check_class_names
 from ultralytics.nn.modules import (
     AIFI,
@@ -94,10 +93,13 @@ from ultralytics.utils.torch_utils import (
     time_sync,
 )
 
+from .extra_module import *
 from .extra_module.SR_Detect import *
 
-C3K2_CLASS = (C3k_ECMA_PF,C3k2_ECMA_PF)
+C3K2_CLASS = (C3k_ECMA_PF, C3k2_ECMA_PF)
 DETECT_CLASS = (Detect, SR_Detect)
+
+
 class BaseModel(torch.nn.Module):
     """
     Base class for all YOLO models in the Ultralytics family.
@@ -1580,7 +1582,6 @@ def parse_model(d, ch, verbose=True):
     layers, save, c2 = [], [], ch[-1]  # layers, savelist, ch out
     base_modules = frozenset(
         {
-
             Classify,
             Conv,
             ConvTranspose,
@@ -1615,7 +1616,7 @@ def parse_model(d, ch, verbose=True):
             SCDown,
             C2fCIB,
             A2C2f,
-            CAA_DGCBS
+            CAA_DGCBS,
         }
     )
     repeat_modules = frozenset(  # modules with 'repeat' arguments
@@ -1651,7 +1652,7 @@ def parse_model(d, ch, verbose=True):
                     args[j] = locals()[a] if a in locals() else ast.literal_eval(a)
         n = n_ = max(round(n * depth), 1) if n > 1 else n  # depth gain
 
-        if m == 'Conv' and i in (3, 7):
+        if m == "Conv" and i in (3, 7):
             m = CAA_DGCBS
             args = [ch[f], 64, 1]
 
@@ -1668,7 +1669,8 @@ def parse_model(d, ch, verbose=True):
                 group = 1  # 或你想用的其他默认 group 值
                 if c1 // group == 0:
                     raise ValueError(
-                        f"Channel number {c1} is too small for group {group}. Please adjust the group size or channel number.")
+                        f"Channel number {c1} is too small for group {group}. Please adjust the group size or channel number."
+                    )
                 args = [c1, group]
                 c2 = c1
 
@@ -1676,7 +1678,7 @@ def parse_model(d, ch, verbose=True):
             if m in repeat_modules + C3K2_CLASS:
                 args.insert(2, n)  # number of repeats
                 n = 1
-            if m in ((C3k2,) + C3K2_CLASS):  # for M/L/X sizes
+            if m in ((C3k2, *C3K2_CLASS)):  # for M/L/X sizes
                 legacy = False
                 if scale in "mlx":
                     args[3] = True
@@ -1701,7 +1703,18 @@ def parse_model(d, ch, verbose=True):
         elif m is Concat:
             c2 = sum(ch[x] for x in f)
         elif m in frozenset(
-            {Detect, WorldDetect, YOLOEDetect, Segment, YOLOESegment, Pose, OBB, ImagePoolingAttn, v10Detect,DETECT_CLASS}
+            {
+                Detect,
+                WorldDetect,
+                YOLOEDetect,
+                Segment,
+                YOLOESegment,
+                Pose,
+                OBB,
+                ImagePoolingAttn,
+                v10Detect,
+                DETECT_CLASS,
+            }
         ):
             args.append([ch[x] for x in f])
             if m is SR_Detect:

@@ -12,6 +12,11 @@ Model profiles path:
     .\profiles  
 This path contains the model configuration files for YOLO11 and LSDFormer. Additionally, a template for dataset configuration files is also provided.  
 
+Core source file:
+
+    .\ultralytics\nn\extra_module
+This document contains all the ideas of LSDFormer. If you want to fully understand our method, this is the only document you can read.
+
 Training and testing script paths:
 
     .\train.py   

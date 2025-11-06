@@ -3,6 +3,7 @@ This is the official repo archiving the source code of LSDFormer
 
 ## How to
 LSDFormer is implemented based on [Ultralytics YOLO](https://docs.ultralytics.com/zh/). We only made some modifications on it, so there is no need to download the complete code again. However, it should be noted that:
+
 Please install the ultralytics package, including all requirements, in a Python>=3.8 environment with PyTorch>=1.8.  
     `pip install ultralytics`        
 

@@ -3,9 +3,9 @@ warnings.filterwarnings('ignore')
 from ultralytics import YOLO
 
 if __name__ == '__main__':
-    model = YOLO(r'D:\EdgeDownload\ultralytics-main\profiles\LSDFormer.yaml')
+    model = YOLO(r'') #模型配置文件
 
-    model.train(data=r'D:\EdgeDownload\ultralytics-main\profiles\dataset_profiles\HRSID.yaml',
+    model.train(data=r'', #数据集配置文件
                 task='detect',
                 imgsz=640,
                 epochs=300,

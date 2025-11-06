@@ -7,7 +7,7 @@ LSDFormer is implemented based on [Ultralytics YOLO](https://docs.ultralytics.co
 Please install the ultralytics package, including all requirements, in a Python>=3.8 environment with PyTorch>=1.8.  
     `pip install ultralytics`        
 
-model profiles path:
+Model profiles path:
 
     .\profiles  
 This path contains the model configuration files for YOLO11 and LSDFormer. Additionally, a template for dataset configuration files is also provided.  

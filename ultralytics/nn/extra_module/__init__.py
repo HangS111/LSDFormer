@@ -1,3 +1,3 @@
-from .ECMA_PFB import *
-from .CAA_DGCBS import *
+from .ECMA_PF import *
+from .ECAA_DGCBS import *
 from .SR_Detect import *

@@ -34,9 +34,7 @@ class LayerNormGeneral(nn.Module):
         return x
 
 class Scale(nn.Module):
-    """
-    Scale vector by element multiplications.
-    """
+
     def __init__(self, dim, init_value=1.0, trainable=True):
         super().__init__()
         self.scale = nn.Parameter(init_value * torch.ones(dim), requires_grad=trainable)
@@ -45,10 +43,7 @@ class Scale(nn.Module):
         return x * self.scale
 
 class LayerNormWithoutBias(nn.Module):
-    """
-    Equal to partial(LayerNormGeneral, bias=False) but faster,
-    because it directly utilizes otpimized F.layer_norm
-    """
+
     def __init__(self, normalized_shape, eps=1e-5, **kwargs):
         super().__init__()
         self.eps = eps
@@ -61,9 +56,7 @@ class LayerNormWithoutBias(nn.Module):
         return F.layer_norm(x, self.normalized_shape, weight=self.weight, bias=self.bias, eps=self.eps)
 
 class StarReLU(nn.Module):
-    """
-    StarReLU: s * relu(x) ** 2 + b
-    """
+
     def __init__(self, scale_value=1.0, bias_value=0.0,
         scale_learnable=True, bias_learnable=True,
         mode=None, inplace=False):
@@ -78,10 +71,7 @@ class StarReLU(nn.Module):
         return self.scale * self.relu(x)**2 + self.bias
 
 class Pooling(nn.Module):
-    """
-    Implementation of pooling for PoolFormer: https://arxiv.org/abs/2111.11418
-    Modfiled for [B, H, W, C] input
-    """
+
     def __init__(self, pool_size=3, **kwargs):
         super().__init__()
         self.pool = nn.AvgPool2d(
@@ -94,9 +84,7 @@ class Pooling(nn.Module):
         return y - x
 
 class Mlp(nn.Module):
-    """ MLP as used in MetaFormer models, eg Transformer, MLP-Mixer, PoolFormer, MetaFormer baslines and related networks.
-    Mostly copied from timm.
-    """
+
     def __init__(self, dim, mlp_ratio=4, out_features=None, act_layer=StarReLU, drop=0., bias=False, **kwargs):
         super().__init__()
         in_features = dim
@@ -121,7 +109,7 @@ class Mlp(nn.Module):
 
 
 
-class ConvolutionalGLU(nn.Module):
+class ECMA_MLP(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.) -> None:
         super().__init__()
         out_features = out_features or in_features
@@ -147,9 +135,7 @@ class ConvolutionalGLU(nn.Module):
         return x_shortcut + x
 
 class MetaFormerBlock(nn.Module):
-    """
-    Implementation of one MetaFormer block.
-    """
+
     def __init__(self, dim,
                  token_mixer=nn.Identity, mlp=Mlp,
                  norm_layer=partial(LayerNormWithoutBias, eps=1e-6),
@@ -191,12 +177,10 @@ class MetaFormerBlock(nn.Module):
             )
         return x.permute(0, 3, 1, 2)
 
-class MetaFormerCGLUBlock(nn.Module):
-    """
-    Implementation of one MetaFormer block.
-    """
+class ECMA_PFB(nn.Module):
+
     def __init__(self, dim,
-                 token_mixer=nn.Identity, mlp=ConvolutionalGLU,
+                 token_mixer=nn.Identity, mlp=ECMA_MLP,
                  norm_layer=partial(LayerNormWithoutBias, eps=1e-6),
                  drop=0., drop_path=0.,
                  layer_scale_init_value=None, res_scale_init_value=None
@@ -241,13 +225,13 @@ class C3k_ECMA_PF(C3k):
     def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5, k=3):
         super().__init__(c1, c2, n, shortcut, g, e, k)
         c_ = int(c2 * e)  # hidden channels
-        self.m = nn.Sequential(*(MetaFormerCGLUBlock(
+        self.m = nn.Sequential(*(ECMA_PFB(
                 dim=c_, token_mixer=Pooling, norm_layer=partial(LayerNormGeneral, normalized_dim=(1, 2, 3), eps=1e-6, bias=False)
             ) for _ in range(n)))
 
 class C3k2_ECMA_PF(C3k2):
     def __init__(self, c1, c2, n=1, c3k=False, e=0.5, g=1, shortcut=True):
         super().__init__(c1, c2, n, c3k, e, g, shortcut)
-        self.m = nn.ModuleList(C3k_ECMA_PF(self.c, self.c, n, shortcut, g) if c3k else MetaFormerCGLUBlock(
+        self.m = nn.ModuleList(C3k_ECMA_PF(self.c, self.c, n, shortcut, g) if c3k else ECMA_PFB(
                 dim=self.c, token_mixer=Pooling, norm_layer=partial(LayerNormGeneral, normalized_dim=(1, 2, 3), eps=1e-6, bias=False)
             ) for _ in range(n))

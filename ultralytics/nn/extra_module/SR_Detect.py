@@ -9,7 +9,7 @@ __all__ = ['SR_Detect'
 
 
 class DEConv_GN(DEConv):
-    """Standard convolution with args(ch_in, ch_out, kernel, stride, padding, groups, dilation, activation)."""
+
 
     def __init__(self, dim):
         super().__init__(dim)
@@ -17,7 +17,7 @@ class DEConv_GN(DEConv):
         self.bn = nn.GroupNorm(16, dim)
 
 def autopad(k, p=None, d=1):  # kernel, padding, dilation
-    """Pad to 'same' shape outputs."""
+
     if d > 1:
         k = d * (k - 1) + 1 if isinstance(k, int) else [d * (x - 1) + 1 for x in k]  # actual kernel-size
     if p is None:
@@ -25,30 +25,21 @@ def autopad(k, p=None, d=1):  # kernel, padding, dilation
     return p
 
 class Conv_GN(nn.Module):
-    """Standard convolution with args(ch_in, ch_out, kernel, stride, padding, groups, dilation, activation)."""
 
     default_act = nn.SiLU()  # default activation
 
     def __init__(self, c1, c2, k=1, s=1, p=None, g=1, d=1, act=True):
-        """Initialize Conv layer with given arguments including activation."""
+
         super().__init__()
         self.conv = nn.Conv2d(c1, c2, k, s, autopad(k, p, d), groups=g, dilation=d, bias=False)
         self.gn = nn.GroupNorm(16, c2)
         self.act = self.default_act if act is True else act if isinstance(act, nn.Module) else nn.Identity()
 
     def forward(self, x):
-        """Apply convolution, batch normalization and activation to input tensor."""
+
         return self.act(self.gn(self.conv(x)))
 
 class Scale(nn.Module):
-    """A learnable scale parameter.
-
-    This layer scales the input by a learnable factor. It multiplies a
-    learnable scale parameter of shape (1,) with input of any shape.
-
-    Args:
-        scale (float): Initial value of scale factor. Default: 1.0
-    """
 
     def __init__(self, scale: float = 1.0):
         super().__init__()
@@ -58,8 +49,6 @@ class Scale(nn.Module):
         return x * self.scale
 
 class SR_Detect(nn.Module):
-    # Lightweight Shared Detail Enhanced Convolutional Detection Head
-    """YOLOv8 Detect head for detection models."""
 
     dynamic = False  # force grid reconstruction
     export = False  # export mode

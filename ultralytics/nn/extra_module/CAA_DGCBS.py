@@ -5,9 +5,9 @@ from einops import rearrange, reduce
 from ..modules import *
 
 
-__all__ = ['CAA_DGCBS']
+__all__ = ['ECAA_DGCBS']
 
-class CAA_DGCBS(nn.Module):
+class ECAA_DGCBS(nn.Module):
     def __init__(self, ch, group=16) -> None:
         super().__init__()
 

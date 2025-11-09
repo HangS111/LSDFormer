@@ -18,10 +18,11 @@ Core source file:
     .\ultralytics\nn\extra_module
 This folder contains key modules of LSDFormer. If you want to fully understand our model, this is the only folder you need to read.
 
-Training and testing script paths:
+Training, testing and predicting script paths:
 
     .\train.py   
     .\test.py
+    .\predict.py
 We also  provide training and testing file templates, and all parameters can be customized.
 
 ## Note

@@ -4,8 +4,8 @@ from ultralytics import YOLO
 
 
 if __name__ == '__main__':
-    model = YOLO('') #模型训练权重文件
-    model.val(data='', #数据集配置文件
+    model = YOLO('') #Path of the model training weight file
+    model.val(data='', #Dataset configuration file path
               split='val',
               imgsz=640,
               batch=256,

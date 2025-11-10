@@ -74,7 +74,6 @@ class SR_Detect(nn.Module):
         self.dfl = DFL(self.reg_max) if self.reg_max > 1 else nn.Identity()
 
     def forward(self, x):
-        """Concatenates and returns predicted bounding boxes and class probabilities."""
         for i in range(self.nl):
             x[i] = self.conv[i](x[i])
             x[i] = self.share_conv(x[i])
@@ -82,7 +81,6 @@ class SR_Detect(nn.Module):
         if self.training:  # Training path
             return x
 
-        # Inference path
         shape = x[0].shape  # BCHW
         x_cat = torch.cat([xi.view(shape[0], self.no, -1) for xi in x], 2)
         if self.dynamic or self.shape != shape:
@@ -97,8 +95,6 @@ class SR_Detect(nn.Module):
         dbox = self.decode_bboxes(box)
 
         if self.export and self.format in ("tflite", "edgetpu"):
-            # Precompute normalization factor to increase numerical stability
-            # See https://github.com/ultralytics/ultralytics/issues/7371
             img_h = shape[2]
             img_w = shape[3]
             img_size = torch.tensor([img_w, img_h, img_w, img_h], device=box.device).reshape(1, 4, 1)
@@ -109,14 +105,9 @@ class SR_Detect(nn.Module):
         return y if self.export else (y, x)
 
     def bias_init(self):
-        """Initialize Detect() biases, WARNING: requires stride availability."""
         m = self  # self.model[-1]  # Detect() module
-        # cf = torch.bincount(torch.tensor(np.concatenate(dataset.labels, 0)[:, 0]).long(), minlength=nc) + 1
-        # ncf = math.log(0.6 / (m.nc - 0.999999)) if cf is None else torch.log(cf / cf.sum())  # nominal class frequency
-        # for a, b, s in zip(m.cv2, m.cv3, m.stride):  # from
         m.cv2.bias.data[:] = 1.0  # box
         m.cv3.bias.data[: m.nc] = math.log(5 / m.nc / (640 / 16) ** 2)  # cls (.01 objects, 80 classes, 640 img)
 
     def decode_bboxes(self, bboxes):
-        """Decode bounding boxes."""
         return dist2bbox(self.dfl(bboxes), self.anchors.unsqueeze(0), xywh=True, dim=1) * self.strides

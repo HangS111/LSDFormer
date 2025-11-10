@@ -57,7 +57,7 @@ class SR_Detect(nn.Module):
     strides = torch.empty(0)  # init
 
     def __init__(self, nc=80, hidc=256, ch=()):
-        """Initializes the YOLOv8 detection layer with specified number of classes and channels."""
+
         super().__init__()
         self.nc = nc  # number of classes
         self.nl = len(ch)  # number of detection layers

@@ -83,31 +83,6 @@ class Pooling(nn.Module):
         y = y.permute(0, 2, 3, 1)
         return y - x
 
-class Mlp(nn.Module):
-
-    def __init__(self, dim, mlp_ratio=4, out_features=None, act_layer=StarReLU, drop=0., bias=False, **kwargs):
-        super().__init__()
-        in_features = dim
-        out_features = out_features or in_features
-        hidden_features = int(mlp_ratio * in_features)
-        drop_probs = to_2tuple(drop)
-
-        self.fc1 = nn.Linear(in_features, hidden_features, bias=bias)
-        self.act = act_layer()
-        self.drop1 = nn.Dropout(drop_probs[0])
-        self.fc2 = nn.Linear(hidden_features, out_features, bias=bias)
-        self.drop2 = nn.Dropout(drop_probs[1])
-
-    def forward(self, x):
-        x = self.fc1(x)
-        x = self.act(x)
-        x = self.drop1(x)
-        x = self.fc2(x)
-        x = self.drop2(x)
-        return x
-
-
-
 
 class ECMA_MLP(nn.Module):
     def __init__(self, in_features, hidden_features=None, out_features=None, act_layer=nn.GELU, drop=0.) -> None:
@@ -133,49 +108,6 @@ class ECMA_MLP(nn.Module):
         x = self.fc2(x)
         x = self.drop(x)
         return x_shortcut + x
-
-class MetaFormerBlock(nn.Module):
-
-    def __init__(self, dim,
-                 token_mixer=nn.Identity, mlp=Mlp,
-                 norm_layer=partial(LayerNormWithoutBias, eps=1e-6),
-                 drop=0., drop_path=0.,
-                 layer_scale_init_value=None, res_scale_init_value=None
-                 ):
-
-        super().__init__()
-
-        self.norm1 = norm_layer(dim)
-        self.token_mixer = token_mixer(dim=dim, drop=drop)
-        self.drop_path1 = DropPath(drop_path) if drop_path > 0. else nn.Identity()
-        self.layer_scale1 = Scale(dim=dim, init_value=layer_scale_init_value) \
-            if layer_scale_init_value else nn.Identity()
-        self.res_scale1 = Scale(dim=dim, init_value=res_scale_init_value) \
-            if res_scale_init_value else nn.Identity()
-
-        self.norm2 = norm_layer(dim)
-        self.mlp = mlp(dim=dim, drop=drop)
-        self.drop_path2 = DropPath(drop_path) if drop_path > 0. else nn.Identity()
-        self.layer_scale2 = Scale(dim=dim, init_value=layer_scale_init_value) \
-            if layer_scale_init_value else nn.Identity()
-        self.res_scale2 = Scale(dim=dim, init_value=res_scale_init_value) \
-            if res_scale_init_value else nn.Identity()
-
-    def forward(self, x):
-        x = x.permute(0, 2, 3, 1)
-        x = self.res_scale1(x) + \
-            self.layer_scale1(
-                self.drop_path1(
-                    self.token_mixer(self.norm1(x))
-                )
-            )
-        x = self.res_scale2(x) + \
-            self.layer_scale2(
-                self.drop_path2(
-                    self.mlp(self.norm2(x))
-                )
-            )
-        return x.permute(0, 3, 1, 2)
 
 class ECMA_PFB(nn.Module):
 

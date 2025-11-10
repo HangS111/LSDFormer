@@ -55,21 +55,6 @@ class LayerNormWithoutBias(nn.Module):
     def forward(self, x):
         return F.layer_norm(x, self.normalized_shape, weight=self.weight, bias=self.bias, eps=self.eps)
 
-class StarReLU(nn.Module):
-
-    def __init__(self, scale_value=1.0, bias_value=0.0,
-        scale_learnable=True, bias_learnable=True,
-        mode=None, inplace=False):
-        super().__init__()
-        self.inplace = inplace
-        self.relu = nn.ReLU(inplace=inplace)
-        self.scale = nn.Parameter(scale_value * torch.ones(1),
-            requires_grad=scale_learnable)
-        self.bias = nn.Parameter(bias_value * torch.ones(1),
-            requires_grad=bias_learnable)
-    def forward(self, x):
-        return self.scale * self.relu(x)**2 + self.bias
-
 class Pooling(nn.Module):
 
     def __init__(self, pool_size=3, **kwargs):

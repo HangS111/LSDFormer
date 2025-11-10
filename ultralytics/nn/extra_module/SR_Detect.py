@@ -67,12 +67,6 @@ class SR_Detect(nn.Module):
         self.conv = nn.ModuleList(nn.Sequential(Conv_GN(x, hidc, 1)) for x in ch)
         self.share_conv = nn.Sequential(DEConv_GN(hidc), DEConv_GN(hidc))
 
-        # self.share_conv = nn.Sequential(DEConv_GN(hidc))
-
-        # self.share_conv = nn.Sequential(
-        #     Conv_GN(hidc, hidc, 1),
-        #     Conv_GN(hidc, hidc, 1)
-        # )
 
         self.cv2 = nn.Conv2d(hidc, 4 * self.reg_max, 1)
         self.cv3 = nn.Conv2d(hidc, self.nc, 1)
